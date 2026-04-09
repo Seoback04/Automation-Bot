@@ -45,7 +45,13 @@
     }
   },
   "job_preferences": {
-    "role": "Software Tester",
-    "location": "Auckland"
+    "role": "Part Time",
+    "location": "Auckland",
+    "include_keywords": "",
+    "exclude_keywords": "",
+    "target_sites": "",
+    "avoid_sites": "",
+    "remote_preference": "",
+    "seniority": ""
   }
 }

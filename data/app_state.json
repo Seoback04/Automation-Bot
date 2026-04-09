@@ -1,16 +1,7 @@
 {
   "profile_path": "B:\\Bot\\profile.json",
   "resume_path": "B:\\Bot\\data\\resumes\\abah844_UOA.pdf",
-  "company": "",
-  "role": "Software Tester",
+  "role": "Part Time",
   "location": "Auckland",
-  "source": "1",
-  "url": "https://app.zeil.com/app/candidate/search",
-  "headless": false,
-  "keep_browser_open": true,
-  "review_only": true,
-  "browser_mode": "Attach to existing Brave debug session",
-  "application_stage": "Ready to Apply",
-  "priority": "High",
-  "notes": ""
+  "headless": false
 }

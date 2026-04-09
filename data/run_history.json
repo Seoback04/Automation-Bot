@@ -11,5 +11,44 @@
     "filled_count": 0,
     "detected_count": 0,
     "screenshot": "B:\\Bot\\data\\screenshots\\review_20260409_020225.png"
+  },
+  {
+    "timestamp": "2026-04-10 00:34:13",
+    "role": "Part Time",
+    "location": "Auckland",
+    "url": "https://www.trademe.co.nz/a/jobs/auckland/part-time",
+    "source": "Auto Search",
+    "source_value": "2",
+    "result": "Review pending",
+    "summary": "Filled 0/0 fields on Auto Search",
+    "filled_count": 0,
+    "detected_count": 0,
+    "screenshot": ""
+  },
+  {
+    "timestamp": "2026-04-10 00:41:18",
+    "role": "BIM Technician",
+    "location": "Auckland",
+    "url": "https://nz.jora.com/Bim-Technician-jobs-in-Auckland-Region",
+    "source": "Auto Search",
+    "source_value": "2",
+    "result": "Review pending",
+    "summary": "Filled 0/0 fields on Auto Search",
+    "filled_count": 0,
+    "detected_count": 0,
+    "screenshot": ""
+  },
+  {
+    "timestamp": "2026-04-10 01:10:11",
+    "role": "Part Time",
+    "location": "Auckland",
+    "url": "https://www.seek.co.nz/apply-for-part-time-jobs/in-All-Auckland",
+    "source": "Auto Search",
+    "source_value": "2",
+    "result": "Review pending",
+    "summary": "Filled 0/0 fields on Auto Search",
+    "filled_count": 0,
+    "detected_count": 0,
+    "screenshot": ""
   }
 ]

@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.common.exceptions import SessionNotCreatedException
 from webdriver_manager.chrome import ChromeDriverManager
 
-from config import PAGE_SETTLE_SECONDS
+from config import AUTOMATION_BROWSER_PROFILE_DIR, PAGE_SETTLE_SECONDS
 from utils.selectors import (
     CONTINUE_TERMS,
     EASY_APPLY_TERMS,
@@ -99,7 +99,14 @@ class BrowserSession:
     # ------------------------------------------------------------------
 
     def open(self, url: str) -> None:
-        self._require_driver().get(url)
+        driver = self._require_driver()
+        self._switch_to_live_window(driver)
+        driver.get(url)
+
+    def prepare_for_job_search(self, url: str) -> None:
+        driver = self._require_driver()
+        self._switch_to_live_window(driver)
+        self.open(url)
 
     def wait_for_page_settle(self, seconds: float | None = None) -> None:
         wait_time = seconds if seconds is not None else PAGE_SETTLE_SECONDS
@@ -390,6 +397,32 @@ class BrowserSession:
         return self.driver
 
     @staticmethod
+    def _switch_to_live_window(driver: Chrome) -> None:
+        handles = list(driver.window_handles)
+        if not handles:
+            driver.switch_to.new_window("tab")
+            handles = list(driver.window_handles)
+        if not handles:
+            raise RuntimeError("No browser window is available.")
+
+        try:
+            current_handle = driver.current_window_handle
+            if current_handle in handles:
+                driver.switch_to.window(current_handle)
+                return
+        except Exception:
+            pass
+
+        for handle in handles:
+            try:
+                driver.switch_to.window(handle)
+                return
+            except Exception:
+                continue
+
+        raise RuntimeError("Could not switch to a live browser window.")
+
+    @staticmethod
     def _find_brave_path() -> str:
         """Locate Brave browser executable on Windows."""
         common_paths = [
@@ -446,15 +479,9 @@ class BrowserSession:
                 opts.add_experimental_option("detach", True)
 
             if use_profile and self._brave_path:
-                user_data_dir = os.path.join(
-                    os.getenv("LOCALAPPDATA", ""),
-                    "BraveSoftware",
-                    "Brave-Browser",
-                    "User Data",
-                )
-                if os.path.exists(user_data_dir):
-                    opts.add_argument(f"--user-data-dir={user_data_dir}")
-                    opts.add_argument("--profile-directory=Default")
+                AUTOMATION_BROWSER_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+                opts.add_argument(f"--user-data-dir={AUTOMATION_BROWSER_PROFILE_DIR}")
+                opts.add_argument("--profile-directory=Default")
 
         if self._chrome_driver_path:
             service = Service(self._chrome_driver_path)

@@ -20,6 +20,19 @@ class JobSearchEngine:
     """Searches public job pages and ranks likely matches."""
 
     TRUSTED_DOMAINS = ("linkedin.com", "indeed.com", "greenhouse.io", "lever.co", "workday", "jobs")
+    BLOCKED_URL_TERMS = (
+        "/search",
+        "google.com",
+        "duckduckgo.com",
+        "bing.com",
+        "yahoo.com",
+        "seek.com",
+        "jora.com",
+        "jooble.org",
+        "jobs?q=",
+        "/jobs?",
+    )
+    JOB_PATH_TERMS = ("job", "jobs", "careers", "career", "apply", "position", "vacancy", "opening")
 
     def search(
         self,
@@ -37,11 +50,27 @@ class JobSearchEngine:
             return None
         return sorted(matches, key=lambda item: item.score, reverse=True)[0]
 
+    def pick_smart_matches(self, matches: list[JobMatch], max_results: int = 5) -> list[JobMatch]:
+        ranked = sorted(matches, key=lambda item: item.score, reverse=True)
+        filtered = [item for item in ranked if self._is_likely_job_posting(item.url, item.title, item.snippet)]
+        return (filtered or ranked)[:max_results]
+
     @staticmethod
     def _build_query(preferences: dict[str, str]) -> str:
         role = (preferences.get("role") or "").strip()
         location = (preferences.get("location") or "").strip()
-        query_parts = [role, location, "jobs", "apply"]
+        include_keywords = (preferences.get("include_keywords") or "").strip()
+        exclude_keywords = (preferences.get("exclude_keywords") or "").strip()
+        remote_preference = (preferences.get("remote_preference") or "").strip()
+        seniority = (preferences.get("seniority") or "").strip()
+        target_sites = [part.strip() for part in str(preferences.get("target_sites") or "").split(",") if part.strip()]
+        avoid_sites = [part.strip() for part in str(preferences.get("avoid_sites") or "").split(",") if part.strip()]
+
+        query_parts = [role, seniority, location, remote_preference, include_keywords, "jobs", "apply"]
+        query_parts.extend([f"site:{site}" for site in target_sites])
+        query_parts.extend([f"-site:{site}" for site in avoid_sites])
+        if exclude_keywords:
+            query_parts.extend(f"-{term}" for term in exclude_keywords.split())
         return " ".join(part for part in query_parts if part)
 
     def _search_duckduckgo(self, query: str, max_results: int) -> list[JobMatch]:
@@ -80,7 +109,15 @@ class JobSearchEngine:
                 results.append(JobMatch(title=title, url=final_url, snippet=snippet, score=score))
 
         results.sort(key=lambda item: item.score, reverse=True)
-        return results[:max_results]
+        deduped: list[JobMatch] = []
+        seen_urls: set[str] = set()
+        for item in results:
+            normalized = item.url.lower().rstrip("/")
+            if normalized in seen_urls:
+                continue
+            seen_urls.add(normalized)
+            deduped.append(item)
+        return deduped[:max_results]
 
     def _score(self, title: str, url: str, snippet: str, query_terms: list[str]) -> float:
         haystack = f"{title} {snippet} {url}".lower()
@@ -92,7 +129,20 @@ class JobSearchEngine:
             score += 2.0
         if "job" in haystack or "career" in haystack:
             score += 0.5
+        if self._is_likely_job_posting(url, title, snippet):
+            score += 2.5
+        else:
+            score -= 1.5
         return score
+
+    def _is_likely_job_posting(self, url: str, title: str, snippet: str) -> bool:
+        lowered_url = url.lower()
+        lowered_text = f"{title} {snippet}".lower()
+        if any(term in lowered_url for term in self.BLOCKED_URL_TERMS):
+            return False
+        if any(term in lowered_url for term in self.JOB_PATH_TERMS):
+            return True
+        return any(term in lowered_text for term in ("apply", "job", "career", "position", "opening"))
 
     @staticmethod
     def _extract_redirect_target(href: str) -> str:
