@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .ai_engine import generate_cover_letter
@@ -47,6 +48,9 @@ class EasyApplyBot:
         "role": ["role", "position", "job title"],
     }
 
+    YES_WORDS = {"yes", "y", "true", "authorized", "eligible"}
+    NO_WORDS = {"no", "n", "false", "not authorized", "require sponsorship", "requires sponsorship"}
+
     def __init__(self, profile_store: ProfileStore | None = None) -> None:
         self.profile_store = profile_store
 
@@ -62,7 +66,7 @@ class EasyApplyBot:
         missing_fields: list[dict[str, Any]] = []
 
         for field in fields:
-            value = self._resolve_field_value(field, answers, page_text)
+            value = self._resolve_field_value(field, answers, page_text, profile)
             if value:
                 fill_plan.append({
                     "tag": field.get("tag", ""),
@@ -71,13 +75,22 @@ class EasyApplyBot:
                     "id": field.get("id", ""),
                     "selector": field.get("selector", ""),
                     "xpath": field.get("xpath", ""),
+                    "label": field.get("label", ""),
+                    "section": field.get("section", ""),
                     "value": value,
                 })
             elif field.get("required"):
                 missing_fields.append(
                     {
-                        "key": self._field_key(field),
+                        "key": self.classify_field(field),
                         "label": field.get("label") or field.get("name") or field.get("placeholder") or "",
+                        "name": field.get("name", ""),
+                        "id": field.get("id", ""),
+                        "placeholder": field.get("placeholder", ""),
+                        "aria_label": field.get("aria_label", ""),
+                        "tag": field.get("tag", ""),
+                        "type": field.get("type", ""),
+                        "section": field.get("section", ""),
                         "options": field.get("options", []) or [],
                     }
                 )
@@ -86,6 +99,7 @@ class EasyApplyBot:
             "fill_plan": fill_plan,
             "missing_fields": missing_fields,
             "answers": answers,
+            "field_count": len(fields),
         }
 
     def _build_answers(
@@ -120,17 +134,50 @@ class EasyApplyBot:
 
         return answers
 
+    def record_step(
+        self,
+        profile: dict[str, Any],
+        step_number: int,
+        fields: list[dict[str, Any]],
+        result: dict[str, Any],
+    ) -> None:
+        if self.profile_store is None:
+            return
+
+        sections = sorted(
+            {
+                str(field.get("section", "")).strip()
+                for field in fields
+                if str(field.get("section", "")).strip()
+            }
+        )
+        summary = {
+            "step": step_number,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "sections": sections,
+            "detected_fields": len(fields),
+            "filled_fields": sum(1 for item in result.get("fill_plan", []) if str(item.get("value", "")).strip()),
+            "missing_labels": [
+                str(item.get("label", "")).strip()
+                for item in result.get("missing_fields", [])
+                if str(item.get("label", "")).strip()
+            ],
+        }
+        self.profile_store.record_application_step(profile, summary)
+
     def _resolve_field_value(
         self,
         field: dict[str, Any],
         answers: dict[str, str],
         page_text: str,
+        profile: dict[str, Any],
     ) -> str:
         parts = [
             str(field.get("label", "")),
             str(field.get("name", "")),
             str(field.get("placeholder", "")),
             str(field.get("aria_label", "")),
+            str(field.get("section", "")),
         ]
         field_text = " ".join(part.lower() for part in parts if part).replace("_", " ").replace("-", " ")
 
@@ -139,9 +186,16 @@ class EasyApplyBot:
 
         field_type = str(field.get("type", "")).lower()
         tag = str(field.get("tag", "")).lower()
+        current_value = str(field.get("current_value", "")).strip()
+
+        if current_value:
+            return ""
 
         if field_type == "file":
-            return answers.get("resume_file", "") or answers.get("resume_path", "")
+            remembered_file = ""
+            if self.profile_store is not None:
+                remembered_file = self.profile_store.lookup_answer(profile, field)
+            return remembered_file or answers.get("resume_file", "") or answers.get("resume_path", "")
 
         if any(term in field_text for term in ["cover letter", "coverletter", "why this role", "motivation", "about you", "message"]):
             return answers.get("cover_letter", "")
@@ -150,6 +204,8 @@ class EasyApplyBot:
             if any(term in field_text for term in synonyms):
                 value = answers.get(key, "")
                 if value or tag != "select":
+                    if field_type in ("checkbox", "radio"):
+                        return self._normalize_binary_value(value)
                     return value
                 return self._match_select_value(field, answers, key)
 
@@ -157,7 +213,16 @@ class EasyApplyBot:
             if not value:
                 continue
             if key in field_text:
+                if field_type in ("checkbox", "radio"):
+                    return self._normalize_binary_value(value)
                 return value
+
+        if self.profile_store is not None:
+            remembered = self.profile_store.lookup_answer(profile, field)
+            if remembered:
+                if field_type in ("checkbox", "radio"):
+                    return self._normalize_binary_value(remembered)
+                return remembered
 
         if tag == "select" and field.get("options"):
             select_guess = self._match_select_value(field, answers)
@@ -210,7 +275,7 @@ class EasyApplyBot:
         if not value:
             return ""
 
-        positive = value in {"yes", "y", "true", "authorized", "eligible"}
+        positive = value in EasyApplyBot.YES_WORDS
         target_terms = {"yes", "authorized", "eligible"} if positive else {"no", "not authorized", "require sponsorship"}
         for option in options:
             option_lower = option.lower()
@@ -220,4 +285,31 @@ class EasyApplyBot:
 
     @staticmethod
     def _field_key(field: dict[str, Any]) -> str:
-        return str(field.get("name") or field.get("id") or field.get("label") or field.get("placeholder") or "").strip()
+        text = str(field.get("name") or field.get("id") or field.get("label") or field.get("placeholder") or "").strip()
+        normalized = "".join(ch.lower() if ch.isalnum() else "_" for ch in text)
+        normalized = "_".join(part for part in normalized.split("_") if part)
+        return normalized or text
+
+    @classmethod
+    def classify_field(cls, field: dict[str, Any]) -> str:
+        parts = [
+            str(field.get("label", "")),
+            str(field.get("name", "")),
+            str(field.get("placeholder", "")),
+            str(field.get("aria_label", "")),
+            str(field.get("section", "")),
+        ]
+        field_text = " ".join(part.lower() for part in parts if part).replace("_", " ").replace("-", " ")
+        for key, synonyms in cls.FIELD_KEY_MAP.items():
+            if any(term in field_text for term in synonyms):
+                return key
+        return cls._field_key(field)
+
+    @classmethod
+    def _normalize_binary_value(cls, value: str) -> str:
+        lowered = str(value).strip().lower()
+        if lowered in cls.YES_WORDS:
+            return "yes"
+        if lowered in cls.NO_WORDS:
+            return "no"
+        return str(value).strip()

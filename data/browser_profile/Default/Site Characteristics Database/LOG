@@ -1,2 +1,3 @@
-2026/04/10-01:09:59.950 5544 Creating DB B:\Bot\data\browser_profile\Default\Site Characteristics Database since it was missing.
-2026/04/10-01:09:59.961 5544 Reusing MANIFEST B:\Bot\data\browser_profile\Default\Site Characteristics Database/MANIFEST-000001
+2026/04/10-22:02:51.843 5c18 Reusing MANIFEST B:\Bot\data\browser_profile\Default\Site Characteristics Database/MANIFEST-000001
+2026/04/10-22:02:51.843 5c18 Recovering log #3
+2026/04/10-22:02:51.843 5c18 Reusing old log B:\Bot\data\browser_profile\Default\Site Characteristics Database/000003.log 

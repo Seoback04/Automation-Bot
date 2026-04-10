@@ -56,6 +56,12 @@ class EasyApplyFlow:
                     )
 
             browser.apply_fill_plan(result["fill_plan"])
+            self.bot.record_step(
+                profile=profile,
+                step_number=step,
+                fields=fields,
+                result=result,
+            )
             final_result = result
             final_result["steps_completed"] = step
 

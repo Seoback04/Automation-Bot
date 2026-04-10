@@ -52,6 +52,12 @@ class ExternalApplyFlow:
                 )
 
         browser.apply_fill_plan(result["fill_plan"])
+        self.bot.record_step(
+            profile=profile,
+            step_number=1,
+            fields=fields,
+            result=result,
+        )
         self._save_cover_letter(result.get("answers", {}))
         return result
 

@@ -50,5 +50,31 @@
     "filled_count": 0,
     "detected_count": 0,
     "screenshot": ""
+  },
+  {
+    "timestamp": "2026-04-10 21:57:15",
+    "role": "Software Tester",
+    "location": "Auckland",
+    "url": "https://www.seek.co.nz/qa-software-tester-jobs/in-All-Auckland",
+    "source": "Auto Search",
+    "source_value": "2",
+    "result": "Review pending",
+    "summary": "Filled 0/0 fields on Auto Search",
+    "filled_count": 0,
+    "detected_count": 0,
+    "screenshot": "B:\\Bot\\data\\screenshots\\review_20260410_215658.png"
+  },
+  {
+    "timestamp": "2026-04-10 22:03:02",
+    "role": "Part Time",
+    "location": "Auckland",
+    "url": "https://www.seek.co.nz/apply-for-part-time-jobs/in-All-Auckland",
+    "source": "Auto Search",
+    "source_value": "2",
+    "result": "Review pending",
+    "summary": "Filled 0/0 fields on Auto Search",
+    "filled_count": 0,
+    "detected_count": 0,
+    "screenshot": "B:\\Bot\\data\\screenshots\\review_20260410_220257.png"
   }
 ]

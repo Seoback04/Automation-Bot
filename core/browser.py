@@ -75,9 +75,13 @@ class BrowserSession:
             self.driver = self._create_driver(use_profile=False)
         return False
 
+    @property
+    def attached_to_existing(self) -> bool:
+        return self._attached_to_existing
+
     def stop(self, keep_browser_open: bool = False) -> None:
         if self.driver:
-            if keep_browser_open:
+            if keep_browser_open or self._attached_to_existing:
                 try:
                     service = getattr(self.driver, "service", None)
                     if service is not None:
@@ -103,10 +107,19 @@ class BrowserSession:
         self._switch_to_live_window(driver)
         driver.get(url)
 
+    def open_in_new_tab(self, url: str) -> None:
+        driver = self._require_driver()
+        self._switch_to_live_window(driver)
+        driver.switch_to.new_window("tab")
+        driver.get(url)
+
     def prepare_for_job_search(self, url: str) -> None:
         driver = self._require_driver()
         self._switch_to_live_window(driver)
-        self.open(url)
+        if self._attached_to_existing:
+            self.open_in_new_tab(url)
+        else:
+            self.open(url)
 
     def wait_for_page_settle(self, seconds: float | None = None) -> None:
         wait_time = seconds if seconds is not None else PAGE_SETTLE_SECONDS
@@ -320,6 +333,7 @@ class BrowserSession:
 
                 label_text = self._find_label(element)
                 options = self._get_options(element, tag) if tag == "select" else []
+                section_text = self._find_section_context(element)
                 required = (
                     element.get_attribute("required") is not None
                     or (element.get_attribute("aria-required") or "").lower() == "true"
@@ -333,10 +347,12 @@ class BrowserSession:
                     "label": label_text,
                     "placeholder": element.get_attribute("placeholder") or "",
                     "aria_label": element.get_attribute("aria-label") or "",
+                    "section": section_text,
                     "required": required,
                     "options": options,
                     "selector": f"#{elem_id}" if elem_id else "",
                     "xpath": self._build_xpath(element, tag, name, elem_id),
+                    "current_value": element.get_attribute("value") or "",
                 })
 
         return fields
@@ -354,6 +370,7 @@ class BrowserSession:
 
             element = self._locate_field(driver, item)
             if element is None:
+                item["applied"] = False
                 continue
 
             try:
@@ -375,7 +392,9 @@ class BrowserSession:
                     except Exception:
                         element.clear()
                     element.send_keys(value)
+                item["applied"] = True
             except Exception:
+                item["applied"] = False
                 continue
 
     # ------------------------------------------------------------------
@@ -572,6 +591,32 @@ class BrowserSession:
             return [opt.text.strip() for opt in select.options if opt.text.strip()]
         except Exception:
             return []
+
+    @staticmethod
+    def _find_section_context(element: WebElement) -> str:
+        section_queries = [
+            "./ancestor::fieldset[1]//legend[1]",
+            "./ancestor::section[1]//*[self::h1 or self::h2 or self::h3 or self::h4][1]",
+            "./ancestor::*[self::div or self::form][1]//*[self::h1 or self::h2 or self::h3 or self::h4][1]",
+        ]
+        for query in section_queries:
+            try:
+                for match in element.find_elements(By.XPATH, query):
+                    text = " ".join((match.text or "").split()).strip()
+                    if text:
+                        return text
+            except Exception:
+                continue
+
+        try:
+            parent = element.find_element(By.XPATH, "./ancestor::*[@aria-label or @aria-labelledby][1]")
+            text = (parent.get_attribute("aria-label") or "").strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        return ""
 
     @staticmethod
     def _build_xpath(element: WebElement, tag: str, name: str, elem_id: str) -> str:

@@ -1344,6 +1344,7 @@ Recent Activity:
             shutil.copy2(resume_source, destination)
         final_resume = str(destination.resolve())
         store.remember_answer(profile, "resume_path", final_resume, "Resume")
+        store.remember_document(profile, "resume", final_resume, "Resume")
 
         preferences = self.search_direction.to_preferences()
         preferences["role"] = self.role_var.get().strip() or preferences.get("role", "")
@@ -1393,15 +1394,29 @@ Recent Activity:
                     continue
                 seen.add(key)
                 label = str(field.get("label") or key)
+                section = str(field.get("section") or "").strip()
                 options = field.get("options", []) or []
-                suffix = f"\nOptions: {', '.join(map(str, options[:8]))}" if options else ""
-                value = simpledialog.askstring(
-                    "Missing Field",
-                    f"Enter value for: {label}{suffix}",
-                    parent=self.root,
-                )
+                field_type = str(field.get("type", "")).lower()
+                suffix = f"\nSection: {section}" if section else ""
+                options_text = f"\nOptions: {', '.join(map(str, options[:8]))}" if options else ""
+
+                if field_type == "file":
+                    picked = filedialog.askopenfilename(
+                        title=f"Choose file for {label}",
+                        parent=self.root,
+                    )
+                    value = picked.strip()
+                    if value:
+                        store.remember_document(profile, key or "document", value, label)
+                else:
+                    value = simpledialog.askstring(
+                        "Missing Field",
+                        f"Enter value for: {label}{suffix}{options_text}",
+                        parent=self.root,
+                    ) or ""
+
                 if value and value.strip():
-                    store.remember_answer(profile=profile, field_key=key, value=value.strip(), label=label)
+                    store.remember_field_answer(profile=profile, field=field, value=value.strip())
                     changed = True
             if changed:
                 store.save(profile)
@@ -1414,7 +1429,14 @@ Recent Activity:
         screenshot_path = ""
         try:
             self._log("Opening browser...")
-            browser.start()
+            attached = browser.start(attach_to_existing=not self.headless_var.get())
+            if attached:
+                self._log("Attached to existing Brave window. Opening job in a new tab.")
+            else:
+                self._log(
+                    "Could not attach to an existing Brave window. "
+                    "Started a separate automation window instead."
+                )
             browser.prepare_for_job_search(job_url)
             browser.wait_for_page_settle()
 
@@ -1442,7 +1464,8 @@ Recent Activity:
             browser.save_screenshot(screenshot_file)
             screenshot_path = str(screenshot_file)
             detected_count = len(result.get("fill_plan", []))
-            filled_count = sum(1 for item in result.get("fill_plan", []) if str(item.get("value", "")).strip())
+            filled_count = sum(1 for item in result.get("fill_plan", []) if item.get("applied"))
+            store.save(profile)
 
             self._log(f"Review screenshot: {screenshot_file}")
             self._log(f"Fields detected: {detected_count}")

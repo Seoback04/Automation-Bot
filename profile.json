@@ -42,7 +42,40 @@
     },
     "custom_field_labels": {
       "what": "What"
-    }
+    },
+    "field_aliases": {},
+    "documents": {
+      "resume": {
+        "path": "B:\\Bot\\data\\resumes\\abah844_UOA.pdf",
+        "label": "Resume"
+      }
+    },
+    "application_history": [
+      {
+        "step": 1,
+        "timestamp": "2026-04-10T21:56:58",
+        "sections": [
+          "Enter a location",
+          "Enter keywords",
+          "Related searches"
+        ],
+        "detected_fields": 3,
+        "filled_fields": 0,
+        "missing_labels": []
+      },
+      {
+        "step": 1,
+        "timestamp": "2026-04-10T22:02:57",
+        "sections": [
+          "Enter a location",
+          "Enter keywords",
+          "Machine Operators"
+        ],
+        "detected_fields": 3,
+        "filled_fields": 0,
+        "missing_labels": []
+      }
+    ]
   },
   "job_preferences": {
     "role": "Part Time",

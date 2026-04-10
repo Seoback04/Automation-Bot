@@ -25,7 +25,11 @@ def main() -> None:
     mode = input("1 = Paste link | 2 = Search: ").strip()
 
     browser_session = BrowserSession(headless=False)
-    browser_session.start()
+    attached = browser_session.start(attach_to_existing=True)
+    if attached:
+        print("Attached to your existing Brave window.")
+    else:
+        print("Could not attach to an existing Brave window. Opened a separate automation window.")
 
     if mode == "1":
         url = input("Paste job link: ").strip()
